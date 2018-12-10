@@ -1,4 +1,5 @@
-.idea/
+*.idea/
 *.iml
-out/
 __Test__Walk__/
+/out
+~/.gitignore

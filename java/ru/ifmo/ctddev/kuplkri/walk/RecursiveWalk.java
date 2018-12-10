@@ -10,15 +10,17 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class Walk {
+public class RecursiveWalk {
 
     private static int BYTES_SIZE = 100;
 
     public static void main(final String[] args) {
-        /*String inputFilePath = "D:\\input\\Lab_1_input.txt";
+/*        String inputFilePath = "D:\\input\\Lab_1_input.txt";
         String outputFilePath = "D:\\input\\Lab_1_output.txt";*/
 
         String inputFilePath;
@@ -44,13 +46,28 @@ public class Walk {
             return;
         }
 
-        getHashesAndWriteOutput(outputFilePath, filePaths);
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(outputFilePath))) {
+            getHashesAndWriteOutput(filePaths, bw);
+
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
     }
 
-    private static void getHashesAndWriteOutput(String outputFilePath, List<String> filePaths) {
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(outputFilePath))) {
-            int hash;
-            for (String path : filePaths) {
+
+    private static void getHashesAndWriteOutput(List<String> filePaths, BufferedWriter bw) throws IOException {
+        int hash;
+        for (String path : filePaths) {
+            File file = new File(path);
+            if (file.isDirectory()) {
+                if (file.listFiles() != null && file.listFiles().length != 0) {
+                    List<String> nestedFilePaths = Arrays.stream(file.listFiles())
+                            .map(File::getPath)
+                            .collect(Collectors.toList());
+
+                    getHashesAndWriteOutput(nestedFilePaths, bw);
+                }
+            } else {
                 try {
                     hash = getFileHash(path);
                 } catch (Exception e) {
@@ -60,9 +77,6 @@ public class Walk {
                 bw.write(String.format("%08x", hash) + " " + path);
                 bw.newLine();
             }
-
-        } catch (IOException ex) {
-            ex.printStackTrace();
         }
     }
 
@@ -82,7 +96,6 @@ public class Walk {
                 fileLength -= len;
             }
         }
-
         return hash;
     }
 
@@ -106,5 +119,4 @@ public class Walk {
 
         return hash;
     }
-
 }
