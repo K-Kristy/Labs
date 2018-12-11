@@ -6,12 +6,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 @SuppressWarnings("ALL")
 public class Walk {
@@ -34,7 +33,7 @@ public class Walk {
 
         List<String> filePaths;
         try {
-            filePaths = getFilePaths(inputFilePath);
+            filePaths = Files.readAllLines(Paths.get(inputFilePath), Charset.forName("UTF-8"));
         } catch (Exception e) {
             System.err.println("Can not find input file!");
             return;
@@ -53,7 +52,7 @@ public class Walk {
                     hash = 0;
                 }
 
-                w.write(String.format("%08x", hash) + " " + path + "\n");
+                w.write(String.format("%08x", hash) + " " + path + System.lineSeparator());
             }
 
         } catch (IOException ex) {
@@ -66,36 +65,26 @@ public class Walk {
         int hash = 0x811c9dc5;
         File file = new File(path);
         try (FileInputStream inputStream = new FileInputStream(file)) {
-            long fileLength = file.length();
-            while (fileLength > 0) {
-                int len = fileLength - BYTES_SIZE > 0 ? BYTES_SIZE : (int) fileLength;
-                byte[] content = new byte[len];
-                inputStream.read(content, 0, len);
-                hash = getFNVHash(content, hash);
-                fileLength -= len;
+            int readResult = BYTES_SIZE;
+            while (readResult != -1 && readResult == BYTES_SIZE) {
+                byte[] content = new byte[BYTES_SIZE];
+                readResult = inputStream.read(content, 0, BYTES_SIZE);
+                hash = getFNVHash(content, hash, readResult);
             }
         }
 
         return hash;
     }
 
-    private static List<String> getFilePaths(String inputFilePath) throws IOException {
-        List<String> files = new ArrayList<>();
-        try (Stream<String> stream = Files.lines(Paths.get(inputFilePath))) {
-            stream.forEach(files::add);
-        }
 
-        return files;
-    }
-
-    private static int getFNVHash(byte[] content, int startValue) {
+    private static int getFNVHash(byte[] content, int startValue, int len) {
         int hash = startValue;
         final int fnvPrime = 0x01000193;
         final int twoFiveFive = 0xff;
 
-        for (byte b : content) {
+        for (int i = 0; i < len; i++) {
             hash *= fnvPrime;
-            hash ^= b & twoFiveFive;
+            hash ^= content[i] & twoFiveFive;
         }
 
         return hash;
