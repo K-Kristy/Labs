@@ -6,7 +6,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -33,7 +32,7 @@ public class Walk {
 
         List<String> filePaths;
         try {
-            filePaths = Files.readAllLines(Paths.get(inputFilePath), Charset.forName("UTF-8"));
+            filePaths = Files.readAllLines(Paths.get(inputFilePath), StandardCharsets.UTF_8);
         } catch (Exception e) {
             System.err.println("Can not find input file!");
             return;
@@ -64,10 +63,10 @@ public class Walk {
     private static int getFileHash(String path) throws IOException {
         int hash = 0x811c9dc5;
         File file = new File(path);
+        byte[] content = new byte[BYTES_SIZE];
         try (FileInputStream inputStream = new FileInputStream(file)) {
             int readResult = BYTES_SIZE;
             while (readResult != -1 && readResult == BYTES_SIZE) {
-                byte[] content = new byte[BYTES_SIZE];
                 readResult = inputStream.read(content, 0, BYTES_SIZE);
                 hash = getFNVHash(content, hash, readResult);
             }
