@@ -1,12 +1,13 @@
 package ru.ifmo.ctddev.kuplkri.walk;
 
-import org.apache.commons.lang3.StringUtils;
 
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@SuppressWarnings("ALL")
 public class RecursiveWalk {
 
     private static int BYTES_SIZE = 100;
@@ -33,7 +35,7 @@ public class RecursiveWalk {
             return;
         }
 
-        if (StringUtils.isEmpty(inputFilePath) || StringUtils.isEmpty(outputFilePath)) {
+        if (inputFilePath.isEmpty() || outputFilePath.isEmpty()) {
             System.err.println("Missing parameter!");
             return;
         }
@@ -46,8 +48,8 @@ public class RecursiveWalk {
             return;
         }
 
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(outputFilePath))) {
-            getHashesAndWriteOutput(filePaths, bw);
+        try (Writer w = new OutputStreamWriter(new FileOutputStream(outputFilePath), StandardCharsets.UTF_8)) {
+            getHashesAndWriteOutput(filePaths, w);
 
         } catch (IOException ex) {
             ex.printStackTrace();
@@ -55,27 +57,26 @@ public class RecursiveWalk {
     }
 
 
-    private static void getHashesAndWriteOutput(List<String> filePaths, BufferedWriter bw) throws IOException {
-        int hash;
+    private static void getHashesAndWriteOutput(List<String> filePaths, Writer w) throws IOException {
         for (String path : filePaths) {
             File file = new File(path);
-            if (file.isDirectory()) {
+            if (file.isDirectory() && file.toPath().getFileName().equals(file.toPath().toRealPath().getFileName())) {
                 if (file.listFiles() != null && file.listFiles().length != 0) {
                     List<String> nestedFilePaths = Arrays.stream(file.listFiles())
                             .map(File::getPath)
                             .collect(Collectors.toList());
 
-                    getHashesAndWriteOutput(nestedFilePaths, bw);
+                    getHashesAndWriteOutput(nestedFilePaths, w);
                 }
             } else {
+                int hash;
                 try {
                     hash = getFileHash(path);
                 } catch (Exception e) {
                     hash = 0;
                 }
 
-                bw.write(String.format("%08x", hash) + " " + path);
-                bw.newLine();
+                w.write(String.format("%08x", hash) + " " + path + "\n");
             }
         }
     }
@@ -85,9 +86,9 @@ public class RecursiveWalk {
         int hash = 0x811c9dc5;
 
         File file = new File(path);
-        long fileLength = file.length();
 
         try (FileInputStream inputStream = new FileInputStream(file)) {
+            long fileLength = file.length();
             while (fileLength > 0) {
                 int len = fileLength - BYTES_SIZE > 0 ? BYTES_SIZE : (int) fileLength;
                 byte[] content = new byte[len];
@@ -110,11 +111,12 @@ public class RecursiveWalk {
 
     private static int getFNVHash(byte[] content, int startValue) {
         int hash = startValue;
-        int fnvPrime = 0x01000193;
+        final int fnvPrime = 0x01000193;
+        final int twoFiveFive = 0xff;
 
         for (byte b : content) {
             hash *= fnvPrime;
-            hash ^= (b & 0xff);
+            hash ^= b & twoFiveFive;
         }
 
         return hash;

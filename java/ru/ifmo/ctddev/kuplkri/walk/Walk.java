@@ -1,21 +1,22 @@
 package ru.ifmo.ctddev.kuplkri.walk;
 
-import org.apache.commons.lang3.StringUtils;
-
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
+@SuppressWarnings("ALL")
 public class Walk {
 
-    private static int BYTES_SIZE = 100;
+    private static final int BYTES_SIZE = 100;
 
     public static void main(final String[] args) {
         /*String inputFilePath = "D:\\input\\Lab_1_input.txt";
@@ -27,11 +28,6 @@ public class Walk {
             inputFilePath = args[0];
             outputFilePath = args[1];
         } catch (Exception ex) {
-            System.err.println("Missing parameter!");
-            return;
-        }
-
-        if (StringUtils.isEmpty(inputFilePath) || StringUtils.isEmpty(outputFilePath)) {
             System.err.println("Missing parameter!");
             return;
         }
@@ -48,17 +44,16 @@ public class Walk {
     }
 
     private static void getHashesAndWriteOutput(String outputFilePath, List<String> filePaths) {
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(outputFilePath))) {
-            int hash;
+        try (Writer w = new OutputStreamWriter(new FileOutputStream(outputFilePath), StandardCharsets.UTF_8)) {
             for (String path : filePaths) {
+                int hash;
                 try {
                     hash = getFileHash(path);
                 } catch (Exception e) {
                     hash = 0;
                 }
 
-                bw.write(String.format("%08x", hash) + " " + path);
-                bw.newLine();
+                w.write(String.format("%08x", hash) + " " + path + "\n");
             }
 
         } catch (IOException ex) {
@@ -69,11 +64,9 @@ public class Walk {
 
     private static int getFileHash(String path) throws IOException {
         int hash = 0x811c9dc5;
-
         File file = new File(path);
-        long fileLength = file.length();
-
         try (FileInputStream inputStream = new FileInputStream(file)) {
+            long fileLength = file.length();
             while (fileLength > 0) {
                 int len = fileLength - BYTES_SIZE > 0 ? BYTES_SIZE : (int) fileLength;
                 byte[] content = new byte[len];
@@ -97,11 +90,12 @@ public class Walk {
 
     private static int getFNVHash(byte[] content, int startValue) {
         int hash = startValue;
-        int fnvPrime = 0x01000193;
+        final int fnvPrime = 0x01000193;
+        final int twoFiveFive = 0xff;
 
         for (byte b : content) {
             hash *= fnvPrime;
-            hash ^= (b & 0xff);
+            hash ^= b & twoFiveFive;
         }
 
         return hash;
