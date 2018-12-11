@@ -35,11 +35,6 @@ public class RecursiveWalk {
             return;
         }
 
-        if (inputFilePath.isEmpty() || outputFilePath.isEmpty()) {
-            System.err.println("Missing parameter!");
-            return;
-        }
-
         List<String> filePaths;
         try {
             filePaths = getFilePaths(inputFilePath);
