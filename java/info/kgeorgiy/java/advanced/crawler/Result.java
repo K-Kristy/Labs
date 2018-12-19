@@ -13,7 +13,7 @@ public class Result {
 
     /**
      * Creates a new <tt>Result</tt>.
-     * @param downloaded list of successfully downloaded pages.
+     * @param downloaded list of succesffully downloaded pages.
      * @param errors pages downloaded with errors.
      */
     public Result(final List<String> downloaded, final Map<String, IOException> errors) {

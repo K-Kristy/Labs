@@ -1,15 +1,11 @@
 package info.kgeorgiy.java.advanced.implementor;
 
-import info.kgeorgiy.java.advanced.implementor.examples.lang.*;
-
-import org.junit.Assert;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
 import org.junit.runners.MethodSorters;
 
 import java.io.IOException;
 import java.net.URLClassLoader;
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
@@ -19,13 +15,8 @@ import java.nio.file.Path;
 public class InterfaceJarImplementorTest extends InterfaceImplementorTest {
     @Test
     @Override
-    public void test01_constructor() {
+    public void test01_constructor() throws ClassNotFoundException, NoSuchMethodException {
         assertConstructor(Impler.class, JarImpler.class);
-    }
-
-    @Test
-    public void test07_encoding() throws IOException {
-        test(false, \u041f\u0440\u0438\u0432\u0435\u0442Interface.class);
     }
 
     @Override
@@ -37,7 +28,6 @@ public class InterfaceJarImplementorTest extends InterfaceImplementorTest {
     static void implementJar(final Path root, final Impler implementor, final Class<?> clazz) throws ImplerException {
         final Path jarFile = root.resolve(clazz.getName() + ".jar");
         ((JarImpler) implementor).implementJar(clazz, jarFile);
-        Assert.assertTrue("Jar file not found", Files.isRegularFile(jarFile));
         try (final URLClassLoader classLoader = getClassLoader(jarFile)) {
             check(classLoader, clazz);
         } catch (final IOException e) {

@@ -3,25 +3,26 @@ package info.kgeorgiy.java.advanced.concurrent;
 import info.kgeorgiy.java.advanced.base.BaseTest;
 import org.junit.Assert;
 import org.junit.FixMethodOrder;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestRule;
+import org.junit.rules.TestWatcher;
+import org.junit.runner.Description;
 import org.junit.runners.MethodSorters;
 
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * @author Georgiy Korneev (kgeorgiy@kgeorgiy.info)
  */
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class ScalarIPTest<P extends ScalarIP> extends BaseTest {
-    public static final int PROCESSORS = Runtime.getRuntime().availableProcessors();
-
     public static final Comparator<Integer> BURN_COMPARATOR = (o1, o2) -> {
         int total = o1 + o2;
-        for (int i = 0; i < 5_000_000; i++) {
+        for (int i = 0; i < 50_000_000; i++) {
             total += i;
         }
         if (total == o1 + o2) {
@@ -42,6 +43,13 @@ public class ScalarIPTest<P extends ScalarIP> extends BaseTest {
     public static final List<Integer> sizes = Arrays.asList(10_000, 5, 2, 1);
     private final Random random = new Random(3257083275083275083L);
     protected List<Integer> factors = Collections.singletonList(0);
+
+    @Rule
+    public TestRule watcher = new TestWatcher() {
+        protected void starting(final Description description) {
+            System.err.println("=== Running " + description.getMethodName());
+        }
+    };
 
     @Test
     public void test01_maximum() throws InterruptedException {
@@ -65,46 +73,33 @@ public class ScalarIPTest<P extends ScalarIP> extends BaseTest {
 
     @Test
     public void test05_sleepPerformance() throws InterruptedException {
-        final List<Integer> data = randomList(100 * PROCESSORS);
-        final double speedup = speedup(data, SLEEP_COMPARATOR, PROCESSORS * 2);
-        Assert.assertTrue("Not parallel", speedup > 0.66);
+        final List<Integer> data = randomList(200);
+        final int procs = Runtime.getRuntime().availableProcessors();
+        final double speedup = speedup(data, SLEEP_COMPARATOR, procs * 2, procs * 2);
+        Assert.assertTrue("Not parallel", speedup > procs / 1.5);
     }
 
     @Test
     public void test06_burnPerformance() throws InterruptedException {
-        final List<Integer> data = randomList(100 * PROCESSORS);
-        final double speedup = speedup(data, BURN_COMPARATOR, PROCESSORS);
-        Assert.assertTrue("Not parallel", speedup > 0.66);
-        Assert.assertTrue("Too parallel", speedup < 1.5);
+        final List<Integer> data = randomList(200);
+        final int procs = Runtime.getRuntime().availableProcessors();
+        final double speedup = speedup(data, BURN_COMPARATOR, procs * 2, procs * 2);
+        Assert.assertTrue("Not parallel", speedup > procs / 1.5);
+        Assert.assertTrue("Too parallel", speedup < procs * 1.1);
     }
 
-    protected double speedup(final List<Integer> data, final Comparator<Integer> comparator, final int threads) throws InterruptedException {
-        System.err.println("    Warm up");
-        final ConcurrentFunction<P, Integer, Comparator<Integer>> maximum = ScalarIP::maximum;
-        for (int i = 0; i < 5; i++) {
-            performance(threads, threads, data, maximum, comparator);
-        }
-        System.err.println("    Measurement");
-
-        final double performance1 = performance(1, threads, data, maximum, comparator);
-        final double performance2 = performance(threads, threads, data, maximum, comparator);
-        final double speedup = performance2 / performance1;
-        System.err.format("    Performance ratio %.1f for %d threads (%.1f %.1f ms/op)%n", speedup, threads, performance1, performance2);
+    protected double speedup(final List<Integer> data, final Comparator<Integer> sleepComparator, final int parts, final int threads) throws InterruptedException {
+        final long time1 = speed(threads, 1, data, ScalarIP::maximum, sleepComparator);
+        final long time2 = speed(threads, parts, data, ScalarIP::maximum, sleepComparator);
+        final double speedup = time1 / (double) time2;
+        System.err.format("Speed up %.1f\n", speedup);
         return speedup;
     }
 
-    protected int getSubtasks(final int threads, final int totalThreads) {
-        return threads;
-    }
-
-   private double performance(final int threads, final int totalThreads, final List<Integer> data, final ConcurrentFunction<P, Integer, Comparator<Integer>> f, final Comparator<Integer> comparator) throws InterruptedException {
-        final int subtasks = getSubtasks(threads, totalThreads);
+    private long speed(final int threads, final int subtasks, final List<Integer> data, final ConcurrentFunction<P, Integer, Comparator<Integer>> f, final Comparator<Integer> comparator) throws InterruptedException {
         final long start = System.nanoTime();
         f.apply(createInstance(threads), subtasks, data, comparator);
-        final long time = System.nanoTime() - start;
-
-        final double ops = (subtasks - 1) + (Math.ceil(data.size() / (double) threads) - 1);
-        return time / 1e6 / ops;
+        return System.nanoTime() - start;
     }
 
     protected <T, U> void test(final BiFunction<List<Integer>, U, T> fExpected, final ConcurrentFunction<P, T, U> fActual, final List<Named<U>> cases) throws InterruptedException {
@@ -132,8 +127,12 @@ public class ScalarIPTest<P extends ScalarIP> extends BaseTest {
     }
 
     protected List<Integer> randomList(final int size) {
-        final int[] pool = random.ints(Math.min(size, 1000_000)).toArray();
-        return IntStream.generate(() -> pool[random.nextInt(pool.length)]).limit(size).boxed().collect(Collectors.toList());
+        final List<Integer> pool = random.ints(Math.min(size, 1000_000)).boxed().collect(Collectors.toList());
+        final List<Integer> result = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            result.add(pool.get(random.nextInt(pool.size())));
+        }
+        return result;
     }
 
     @SuppressWarnings("unchecked")

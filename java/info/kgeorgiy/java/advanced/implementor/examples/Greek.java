@@ -1,4 +1,4 @@
-package info.kgeorgiy.java.advanced.implementor.examples.lang;
+package info.kgeorgiy.java.advanced.implementor.examples;
 
 /**
  * @author Georgiy Korneev (kgeorgiy@kgeorgiy.info)

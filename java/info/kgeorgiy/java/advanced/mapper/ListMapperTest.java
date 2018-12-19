@@ -1,7 +1,7 @@
 package info.kgeorgiy.java.advanced.mapper;
 
-import info.kgeorgiy.java.advanced.concurrent.ListIP;
 import info.kgeorgiy.java.advanced.concurrent.ListIPTest;
+import info.kgeorgiy.java.advanced.concurrent.ScalarIP;
 import org.junit.AfterClass;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
@@ -24,13 +24,8 @@ public class ListMapperTest extends ListIPTest {
     }
 
     @Override
-    protected ListIP createInstance(final int threads) {
-        return (ListIP) ScalarMapperTest.instance(threads);
-    }
-
-    @Override
-    protected int getSubtasks(final int threads, final int totalThreads) {
-        return ScalarMapperTest.subtasks(totalThreads);
+    protected ScalarIP createInstance(final int threads) {
+        return ScalarMapperTest.instance(threads);
     }
 
     @AfterClass

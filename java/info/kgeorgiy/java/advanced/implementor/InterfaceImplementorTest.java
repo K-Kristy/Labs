@@ -1,21 +1,26 @@
 package info.kgeorgiy.java.advanced.implementor;
 
 import info.kgeorgiy.java.advanced.base.BaseTest;
-import info.kgeorgiy.java.advanced.implementor.examples.basic.InterfaceWithDefaultMethod;
-import info.kgeorgiy.java.advanced.implementor.examples.basic.InterfaceWithStaticMethod;
-import info.kgeorgiy.java.advanced.implementor.examples.full.InterfaceWithoutMethods;
-import info.kgeorgiy.java.advanced.implementor.standard.basic.Accessible;
-import info.kgeorgiy.java.advanced.implementor.standard.basic.Descriptor;
-import info.kgeorgiy.java.advanced.implementor.standard.basic.Logger;
-import info.kgeorgiy.java.advanced.implementor.standard.basic.RandomAccess;
-import info.kgeorgiy.java.advanced.implementor.standard.full.*;
+import info.kgeorgiy.java.advanced.implementor.examples.InterfaceWithDefaultMethod;
+import info.kgeorgiy.java.advanced.implementor.examples.InterfaceWithStaticMethod;
 import org.junit.Assert;
+import org.junit.FixMethodOrder;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestWatcher;
+import org.junit.runner.Description;
+import org.junit.runners.MethodSorters;
+import org.omg.DynamicAny.DynAny;
 
+import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleAction;
+import javax.annotation.Generated;
+import javax.management.Descriptor;
+import javax.management.loading.PrivateClassLoader;
+import javax.sql.rowset.CachedRowSet;
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
+import javax.xml.bind.Element;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Modifier;
@@ -31,13 +36,19 @@ import java.util.List;
 /**
  * @author Georgiy Korneev (kgeorgiy@kgeorgiy.info)
  */
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class InterfaceImplementorTest extends BaseTest {
     private String methodName;
     @Rule
-    public TestWatcher watcher = watcher(description -> methodName = description.getMethodName());
+    public TestWatcher watcher = new TestWatcher() {
+        protected void starting(final Description description) {
+            methodName = description.getMethodName();
+            System.out.println("== Running " + description.getMethodName());
+        }
+    };
 
     @Test
-    public void test01_constructor() {
+    public void test01_constructor() throws ClassNotFoundException, NoSuchMethodException {
         assertConstructor(Impler.class);
     }
 
@@ -50,18 +61,18 @@ public class InterfaceImplementorTest extends BaseTest {
     }
 
     @Test
-    public void test02_methodlessInterfaces() throws IOException {
-        test(false, RandomAccess.class, InterfaceWithoutMethods.class);
+    public void test02_standardMethodlessInterfaces() throws IOException {
+        test(false, Element.class, PrivateClassLoader.class);
     }
 
     @Test
     public void test03_standardInterfaces() throws IOException {
-        test(false, Accessible.class, AccessibleAction.class, SDeprecated.class);
+        test(false, Accessible.class, AccessibleAction.class, Generated.class);
     }
 
     @Test
     public void test04_extendedInterfaces() throws IOException {
-        test(false, Descriptor.class, CachedRowSet.class, DataInput.class, DataOutput.class, Logger.class);
+        test(false, Descriptor.class, CachedRowSet.class, DynAny.class);
     }
 
     @Test
@@ -137,6 +148,14 @@ public class InterfaceImplementorTest extends BaseTest {
         });
     }
 
+    protected void checkConstructor(final String description, final Class<?> token, final Class<?>... params) {
+        try {
+            token.getConstructor(params);
+        } catch (final NoSuchMethodException e) {
+            Assert.fail(token.getName() + " should have " + description);
+        }
+    }
+
     private void implement(final boolean shouldFail, final Path root, final Class<?>... classes) {
         Impler implementor;
         try {
@@ -183,7 +202,6 @@ public class InterfaceImplementorTest extends BaseTest {
     protected static void check(final URLClassLoader loader, final Class<?> token) {
         final String name = token.getCanonicalName() + "Impl";
         try {
-            System.err.println("Loading class " + name);
             final Class<?> impl = loader.loadClass(name);
 
             if (token.isInterface()) {

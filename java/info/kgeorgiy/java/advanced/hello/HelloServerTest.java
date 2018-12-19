@@ -11,6 +11,7 @@ import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.IntFunction;
 
 import static info.kgeorgiy.java.advanced.hello.Util.response;
@@ -20,89 +21,109 @@ import static info.kgeorgiy.java.advanced.hello.Util.response;
  */
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class HelloServerTest extends BaseTest {
-    private static int port = 8880;
+    private static final AtomicInteger port = new AtomicInteger(8888);
     public static final String REQUEST = HelloServerTest.class.getName();
-    int index = 0;
 
     @Test
-    public void test01_singleRequest() throws IOException {
-        test(1, 1, port -> socket -> checkResponse(port, socket));
+    public void test01_singleRequest() throws Throwable {
+        test(1, port -> socket -> checkResponse(port, socket, REQUEST));
     }
 
     @Test
     public void test02_multipleClients() throws IOException {
-        test(1, 10, port -> socket -> checkResponse(port, socket));
+        try (HelloServer server = createCUT()) {
+            final int port = getPort();
+            server.start(port, 1);
+            for (int i = 0; i < 10; i++) {
+                client(port, REQUEST + i);
+            }
+        }
     }
 
     @Test
-    public void test03_multipleRequests() throws IOException {
-        test(1, 1, port -> socket -> {
+    public void test03_multipleRequests() throws Throwable {
+        test(1, port -> socket -> {
             for (int i = 0; i < 10; i++) {
-                checkResponse(port, socket);
+                checkResponse(port, socket, REQUEST + i);
             }
         });
     }
 
     @Test
-    public void test04_parallelRequests() throws IOException {
-        test(1, 1, port -> socket -> checkParallel(port, socket, 100));
+    public void test04_parallelRequests() throws Throwable {
+        test(1, port -> socket -> {
+            final Set<String> responses = new HashSet<>();
+            for (int i = 0; i < 10; i++) {
+                final String request = REQUEST + i;
+                responses.add(response(request));
+                send(port, socket, request);
+            }
+            for (int i = 0; i < 10; i++) {
+                final String response = Util.receive(socket);
+                Assert.assertTrue("Unexpected response " + response, responses.remove(response));
+            }
+        });
     }
 
-    private void checkParallel(final int port, final DatagramSocket socket, final int requests) throws IOException {
-        final Set<String> responses = new HashSet<>();
-        for (int i = 0; i < requests; i++) {
-            final String request = REQUEST + i;
-            responses.add(response(request));
-            send(port, socket, request);
-        }
-        for (int i = 0; i < requests; i++) {
-            final String response = Util.receive(socket);
-            Assert.assertTrue("Unexpected response " + response, responses.remove(response));
+    @Test
+    public void test05_parallelClients() throws InterruptedException {
+        try (HelloServer server = createCUT()) {
+            final int port = getPort();
+            server.start(port, 1);
+            parallel(10, () -> client(port, REQUEST));
         }
     }
 
     @Test
-    public void test05_parallelClients() throws IOException {
-        test(1, 10, port -> socket -> parallel(1, () -> checkResponse(port, socket)));
-    }
-
-    @Test
-    public void test06_dos() throws IOException {
-        test(1, 10, port -> socket -> parallel(10, () -> {
+    public void test06_dos() throws Throwable {
+        test(1, port -> socket -> parallel(100, () -> {
             for (int i = 0; i < 10000; i++) {
-                send(port, socket, REQUEST + i);
+                send(port, socket, REQUEST);
             }
         }));
     }
 
     @Test
     public void test07_noDoS() throws IOException {
-        test(1, 10, port -> socket -> {
-            for (int i = 0; i < 100; i++) {
-                checkParallel(port, socket, 50);
-            }
-        });
+        try (HelloServer server = createCUT()) {
+            final int port = getPort();
+            server.start(port, 10);
+            parallel(10, () -> {
+                try (DatagramSocket socket = new DatagramSocket(null)) {
+                    for (int i = 0; i < 10000; i++) {
+                        checkResponse(port, socket, REQUEST + i);
+                    }
+                }
+            });
+        }
     }
 
     private void send(final int port, final DatagramSocket socket, final String request) throws IOException {
         Util.send(socket, request, new InetSocketAddress("localhost", port));
     }
 
-    public void test(final int workers, final int sockets, final IntFunction<ConsumerCommand<DatagramSocket, IOException>> command) throws IOException {
-        try (final HelloServer server = createCUT()) {
-            final int port = HelloServerTest.port++;
+    private void client(final int port, final String request) throws IOException {
+        try (DatagramSocket socket = new DatagramSocket(null)) {
+            checkResponse(port, socket, request);
+        }
+    }
+
+    public void test(final int workers, final IntFunction<ConsumerCommand<DatagramSocket>> command) throws Throwable {
+        try (HelloServer server = createCUT()) {
+            final int port = getPort();
             server.start(port, workers);
-            for (int i = 0; i < sockets; i++) {
-                try (final DatagramSocket socket = new DatagramSocket()) {
-                    command.apply(port).run(socket);
-                }
+            try (DatagramSocket socket = new DatagramSocket(null)) {
+                command.apply(port).run(socket);
             }
         }
     }
 
-    private void checkResponse(final int port, final DatagramSocket socket) throws IOException {
-        final String request = REQUEST + index++;
+    private void checkResponse(final int port, final DatagramSocket socket, final String request) throws IOException {
         final String response = Util.request(request, socket, new InetSocketAddress("localhost", port));
         Assert.assertEquals("Invalid response", response(request), response);
+    }
+
+    private int getPort() {
+        return port.getAndIncrement();
     }
 }

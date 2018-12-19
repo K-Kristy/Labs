@@ -1,17 +1,26 @@
 package info.kgeorgiy.java.advanced.implementor;
 
-import info.kgeorgiy.java.advanced.implementor.examples.full.ClassWithPackagePrivateConstructor;
-import info.kgeorgiy.java.advanced.implementor.standard.basic.*;
-import info.kgeorgiy.java.advanced.implementor.standard.full.*;
+import org.junit.FixMethodOrder;
 import org.junit.Test;
+import org.junit.runners.MethodSorters;
+import org.omg.CORBA_2_3.ORB;
 
 import javax.annotation.processing.Completions;
+import javax.imageio.IIOException;
+import javax.imageio.IIOImage;
+import javax.imageio.plugins.bmp.BMPImageWriteParam;
+import javax.imageio.stream.FileCacheImageInputStream;
+import javax.management.ImmutableDescriptor;
+import javax.management.relation.RelationNotFoundException;
+import javax.management.remote.rmi.RMIIIOPServerImpl;
+import javax.management.remote.rmi.RMIServerImpl;
+import javax.naming.ldap.LdapReferralException;
 import java.io.IOException;
-import java.util.Formatter;
 
 /**
  * @author Georgiy Korneev (kgeorgiy@kgeorgiy.info)
  */
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class ClassImplementorTest extends InterfaceImplementorTest {
     @Test
     public void test07_defaultConstructorClasses() throws IOException {
@@ -20,7 +29,7 @@ public class ClassImplementorTest extends InterfaceImplementorTest {
 
     @Test
     public void test08_noDefaultConstructorClasses() throws IOException {
-        test(false, IIOException.class, ImmutableDescriptor.class, LdapReferralException.class, ClassLogger.class);
+        test(false, IIOException.class, ImmutableDescriptor.class, LdapReferralException.class);
     }
 
     @Test
@@ -54,12 +63,7 @@ public class ClassImplementorTest extends InterfaceImplementorTest {
     }
 
     @Test
-    public void test15_enum() throws IOException {
-        test(true, Enum.class, Formatter.BigDecimalLayoutForm.class);
-    }
-
-    @Test
-    public void test16_packagePrivateConstructor() throws IOException {
-        test(false, ClassWithPackagePrivateConstructor.class);
+    public void test15_inheritedNonPublicAbstractMethod() throws IOException {
+        test(false, ORB.class);
     }
 }

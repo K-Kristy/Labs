@@ -8,11 +8,10 @@ import org.junit.runner.Description;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.lang.reflect.InvocationTargetException;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.*;
-import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * @author Georgiy Korneev (kgeorgiy@kgeorgiy.info)
@@ -22,25 +21,18 @@ public class BaseTest {
     public static final String CUT_PROPERTY = "cut";
 
     @Rule
-    public TestRule watcher = watcher(description -> System.err.println("=== Running " + description.getMethodName()));
-
-    protected static TestWatcher watcher(final Consumer<Description> watcher) {
-        return new TestWatcher() {
-            @Override
-            protected void starting(final Description description) {
-                watcher.accept(description);
-            }
-        };
-    }
+    public TestRule watcher = new TestWatcher() {
+        protected void starting(final Description description) {
+            System.err.println("=== Running " + description.getMethodName());
+        }
+    };
 
     @SuppressWarnings("unchecked")
     public static <T> T createCUT() {
         try {
-            return (T) loadClass().getDeclaredConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | NoSuchMethodException e) {
+            return (T) loadClass().newInstance();
+        } catch (InstantiationException | IllegalAccessException e) {
             throw new AssertionError(e);
-        } catch (final InvocationTargetException e) {
-            throw new AssertionError(e.getCause());
         }
     }
 
@@ -55,7 +47,7 @@ public class BaseTest {
         }
     }
 
-    public <E extends Exception> void parallelCommands(final int threads, final List<Command<E>> commands) {
+    public void parallelCommands(final int threads, final List<Command> commands) {
         final ExecutorService executor = Executors.newFixedThreadPool(threads);
         try {
             for (final Future<Void> future : executor.invokeAll(commands)) {
@@ -67,29 +59,21 @@ public class BaseTest {
         }
     }
 
-    public <E extends Exception> void parallel(final int threads, final Command<E> command) {
-        parallelCommands(threads, Collections.nCopies(threads, command));
+    public void parallel(final int threads, final Command command) {
+        parallelCommands(threads, Stream.generate(() -> command).limit(threads).collect(Collectors.toList()));
     }
 
-    protected void checkConstructor(final String description, final Class<?> token, final Class<?>... params) {
-        try {
-            token.getConstructor(params);
-        } catch (final NoSuchMethodException e) {
-            Assert.fail(token.getName() + " should have " + description);
-        }
-    }
-
-    public interface Command<E extends Exception> extends Callable<Void> {
+    public interface Command extends Callable<Void> {
         @Override
-        default Void call() throws E {
+        default Void call() throws Exception {
             run();
             return null;
         }
 
-        void run() throws E;
+        void run() throws Exception;
     }
 
-    public interface ConsumerCommand<T, E extends Exception> {
-        void run(T value) throws E;
+    public interface ConsumerCommand<T> {
+        void run(T value) throws Throwable;
     }
 }

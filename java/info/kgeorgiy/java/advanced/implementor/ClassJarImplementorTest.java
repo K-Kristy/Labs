@@ -1,7 +1,6 @@
 package info.kgeorgiy.java.advanced.implementor;
 
-import info.kgeorgiy.java.advanced.implementor.examples.lang.*;
-
+import info.kgeorgiy.java.advanced.implementor.examples.*;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
 import org.junit.runners.MethodSorters;
@@ -16,7 +15,7 @@ import java.nio.file.Path;
 public class ClassJarImplementorTest extends ClassImplementorTest {
     @Test
     @Override
-    public void test01_constructor() {
+    public void test01_constructor() throws ClassNotFoundException, NoSuchMethodException {
         assertConstructor(Impler.class, JarImpler.class);
     }
 

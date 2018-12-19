@@ -6,8 +6,8 @@ import org.junit.FixMethodOrder;
 import org.junit.Test;
 import org.junit.runners.MethodSorters;
 
+import java.io.IOException;
 import java.net.DatagramSocket;
-import java.net.SocketException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -19,50 +19,50 @@ public class HelloClientTest extends BaseTest {
     public static final String PREFIX = HelloClientTest.class.getName();
 
     @Test
-    public void test01_singleRequest() throws SocketException {
+    public void test01_singleRequest() throws IOException {
         test(1, 1, 1);
     }
 
     @Test
-    public void test02_sequence() throws SocketException {
+    public void test02_sequence() throws IOException {
         test(100, 1, 1);
     }
 
     @Test
-    public void test03_singleWithFailures() throws SocketException {
+    public void test03_singleWithFailures() throws IOException {
         test(1, 1, 0.1);
     }
 
     @Test
-    public void test04_sequenceWithFailures() throws SocketException {
+    public void test04_sequenceWithFailures() throws IOException {
         test(20, 1, 0.5);
     }
 
     @Test
-    public void test05_singleMultithreaded() throws SocketException {
+    public void test05_singleMultithreaded() throws IOException {
         test(1, 10, 1);
     }
 
     @Test
-    public void test06_sequenceMultithreaded() throws SocketException {
+    public void test06_sequenceMultithreaded() throws IOException {
         test(10, 10, 1);
     }
 
     @Test
-    public void test07_sequenceMultithreadedWithFails() throws SocketException {
+    public void test07_sequenceMultithreadedWithFails() throws IOException {
         test(10, 10, 0.5);
     }
 
-    private void test(final int requests, final int treads, final double p) throws SocketException {
+    private void test(final int requests, final int treads, final double p) throws IOException {
         final int port = HelloClientTest.port++;
-        final AtomicInteger[] expected;
-        try (final DatagramSocket socket = new DatagramSocket(port)) {
-            expected = Util.server(PREFIX, treads, p, socket);
+        try (DatagramSocket socket = new DatagramSocket(port)) {
+            final AtomicInteger[] expected = Util.server(PREFIX, treads, p, socket);
             final HelloClient client = createCUT();
-            client.run("localhost", port, PREFIX, treads, requests);
-        }
-        for (int i = 0; i < expected.length; i++) {
-            Assert.assertEquals("Invalid number of requests on thread " + i , requests, expected[i].get());
+            client.start("localhost", port, PREFIX, requests, treads);
+            socket.close();
+            for (int i = 0; i < expected.length; i++) {
+                Assert.assertEquals("Invalid number of requests on thread " + i , requests, expected[i].get());
+            }
         }
     }
 }

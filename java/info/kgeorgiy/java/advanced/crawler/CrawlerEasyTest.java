@@ -3,20 +3,30 @@ package info.kgeorgiy.java.advanced.crawler;
 import info.kgeorgiy.java.advanced.base.BaseTest;
 import org.junit.Assert;
 import org.junit.FixMethodOrder;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestRule;
+import org.junit.rules.TestWatcher;
+import org.junit.runner.Description;
 import org.junit.runners.MethodSorters;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * @author Georgiy Korneev (kgeorgiy@kgeorgiy.info)
  */
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class CrawlerEasyTest extends BaseTest {
+    @Rule
+    public TestRule watcher = new TestWatcher() {
+        protected void starting(final Description description) {
+            System.err.println("=== Running " + description.getMethodName());
+        }
+    };
+
     @Test
     public void test01_singlePage() throws IOException {
         test("http://en.ifmo.ru/en/page/50/Partnership.htm", 1);
@@ -59,9 +69,9 @@ public class CrawlerEasyTest extends BaseTest {
 
     @Test
     public void test09_performance() throws IOException {
-        final long time = test(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, 1000, 1000);
+        final long time = test(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, 100, 1000);
         System.out.println("Time: " + time);
-        Assert.assertTrue("Not parallel", time < 6000);
+        Assert.assertTrue("Not parallel", time < 3000);
     }
 
     private void test(final String url, final int depth) throws IOException {
@@ -73,31 +83,27 @@ public class CrawlerEasyTest extends BaseTest {
     }
 
     protected long test(final String url, final int depth, final int downloaders, final int extractors, final int perHost, final int downloadTimeout, final int extractTimeout) throws IOException {
-        final ReplayDownloader replayDownloader = new ReplayDownloader(url, depth, downloadTimeout, extractTimeout);
-
         final long start = System.currentTimeMillis();
+        final ReplayDownloader replayDownloader = new ReplayDownloader(url, depth, downloadTimeout, extractTimeout);
         final Result actual = download(url, depth, replayDownloader, downloaders, extractors, perHost);
-        final long time = System.currentTimeMillis() - start;
-
         final Result expected = replayDownloader.expected(depth);
         checkResult(expected, actual);
-        return time;
+        return System.currentTimeMillis() - start;
     }
 
     public static void checkResult(final Result expected, final Result actual) {
-        compare("Downloaded OK", new HashSet<>(expected.getDownloaded()), new HashSet<>(actual.getDownloaded()));
-        compare("Downloaded with errors", expected.getErrors().keySet(), actual.getErrors().keySet());
+        checkDownloaded(new HashSet<>(expected.getDownloaded()), new HashSet<>(actual.getDownloaded()));
         Assert.assertEquals("Errors", expected.getErrors(), actual.getErrors());
     }
 
-    private static void compare(final String context, final Set<String> expected, final Set<String> actual) {
-        final Set<String> missing = difference(expected, actual);
-        final Set<String> excess = difference(actual, expected);
-        final String message = String.format("%s:%n    missing = %s%n    excess = %s%n", context, missing, excess);
+    private static void checkDownloaded(final Set<String> expected, final Set<String> actual) {
+        final Set<String> missing = diff(expected, actual);
+        final Set<String> excess = diff(actual, expected);
+        final String message = String.format("\nmissing = %s\nexcess = %s\n", missing, excess);
         Assert.assertTrue(message, missing.isEmpty() && excess.isEmpty());
     }
 
-    private static Result download(final String url, final int depth, final Downloader downloader, final int downloaders, final int extractors, final int perHost) {
+    private static Result download(final String url, final int depth, final Downloader downloader, final int downloaders, final int extractors, final int perHost) throws IOException {
         final CheckingDownloader checkingDownloader = new CheckingDownloader(downloader, downloaders, extractors, perHost);
         try (Crawler crawler = createInstance(checkingDownloader, downloaders, extractors, perHost)) {
             final Result result = crawler.download(url, depth);
@@ -115,7 +121,9 @@ public class CrawlerEasyTest extends BaseTest {
         }
     }
 
-    private static Set<String> difference(final Set<String> a, final Set<String> b) {
-        return a.stream().filter(o -> !b.contains(o)).collect(Collectors.toSet());
+    private static Set<String> diff(final Set<String> a, final Set<String> b) {
+        final Set<String> missing = new HashSet<>(a);
+        missing.removeAll(b);
+        return missing;
     }
 }

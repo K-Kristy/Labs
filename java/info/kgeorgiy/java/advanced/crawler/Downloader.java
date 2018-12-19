@@ -18,5 +18,5 @@ public interface Downloader {
      * @return downloaded document.
      * @throws IOException if an error occurred.
      */
-    Document download(final String url) throws IOException;
+    public Document download(final String url) throws IOException;
 }

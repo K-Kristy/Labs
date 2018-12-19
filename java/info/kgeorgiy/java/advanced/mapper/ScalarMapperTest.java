@@ -3,10 +3,13 @@ package info.kgeorgiy.java.advanced.mapper;
 import info.kgeorgiy.java.advanced.concurrent.ScalarIP;
 import info.kgeorgiy.java.advanced.concurrent.ScalarIPTest;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.FixMethodOrder;
+import org.junit.Test;
 import org.junit.runners.MethodSorters;
 
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * @author Georgiy Korneev (kgeorgiy@kgeorgiy.info)
@@ -39,19 +42,24 @@ public class ScalarMapperTest extends ScalarIPTest<ScalarIP> {
         return (ScalarIP) create(names[1], ParallelMapper.class, parallelMapper);
     }
 
-    @Override
-    protected int getSubtasks(final int threads, final int totalThreads) {
-        return subtasks(totalThreads);
-    }
-
-    protected static int subtasks(final int totalThreads) {
-        return totalThreads * 4;
-    }
-
     @AfterClass
     public static void close() {
-        if (parallelMapper != null) {
-            parallelMapper.close();
+        try {
+            if (parallelMapper != null) {
+                parallelMapper.close();
+            }
+        } catch (final InterruptedException e) {
+            throw new AssertionError(e);
         }
+    }
+
+    @Test
+    public void test05_sleepPerformance() throws InterruptedException {
+        final List<Integer> data = randomList(200);
+        final int procs = Runtime.getRuntime().availableProcessors();
+        final double speedupSeq = speedup(data, SLEEP_COMPARATOR, procs * 2, 1);
+        Assert.assertTrue("Too parallel", speedupSeq < 1.2);
+        final double speedupPar = speedup(data, SLEEP_COMPARATOR, procs * 2, procs * 2);
+        Assert.assertTrue("Not parallel", speedupPar > procs / 1.5);
     }
 }
