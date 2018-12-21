@@ -32,6 +32,13 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         createSortedArraySet(values);
     }
 
+    private ArraySet(E[] values, Comparator<? super E> customComparator) {
+        this.customComparator = customComparator;
+        elements = values;
+
+        this.size = values.length;
+    }
+
     @SuppressWarnings({"All"})
     private void createSortedArraySet(final Collection<E> values) {
         NavigableSet<E> arrayToSet = new TreeSet<>(customComparator);
@@ -43,26 +50,26 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
 
     @Override
     public E lower(final E e) {
-        int ind = lowerIndex(e);
-        return ind == -1 ? null : elements[ind];
+        Integer ind = lowerIndex(e);
+        return ind == null ? null : elements[ind];
     }
 
     @Override
     public E floor(final E e) {
-        int ind = floorIndex(e);
-        return ind == -1 ? null : elements[ind];
+        Integer ind = floorIndex(e);
+        return ind == null ? null : elements[ind];
     }
 
     @Override
     public E ceiling(final E e) {
-        int ind = ceilingIndex(e);
-        return ind == -1 ? null : elements[ind];
+        Integer ind = ceilingIndex(e);
+        return ind == null ? null : elements[ind];
     }
 
     @Override
     public E higher(final E e) {
-        int ind = higherIndex(e);
-        return ind == -1 ? null : elements[ind];
+        Integer ind = higherIndex(e);
+        return ind == null ? null : elements[ind];
     }
 
     @Override
@@ -76,9 +83,13 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         return new ArraySetIterator<>();
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public NavigableSet<E> descendingSet() {
-        return new ArraySet<>(Arrays.asList(Arrays.copyOf(elements, size)), customComparator.reversed());
+        Comparator<? super E> comparator = customComparator == null ?
+                ((Comparator<E>) (ob1, ob2) -> ((Comparable<? super E>) ob1).compareTo((E) ob2)).reversed()
+                : customComparator.reversed();
+        return new ArraySet<>(Arrays.asList(Arrays.copyOf(elements, size)), comparator);
     }
 
     @Override
@@ -93,10 +104,10 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
             return new ArraySet<>(Collections.emptyList(), customComparator);
         }
 
-        int fromInd = fromInclusive ? ceilingIndex(fromElement) : higherIndex(fromElement);
-        int toInd = toInclusive ? floorIndex(toElement) : lowerIndex(toElement);
+        Integer fromInd = fromInclusive ? ceilingIndex(fromElement) : higherIndex(fromElement);
+        Integer toInd = toInclusive ? floorIndex(toElement) : lowerIndex(toElement);
 
-        if (fromInd == -1 || toInd == -1 || toInd < fromInd) {
+        if (fromInd == null || toInd == null || toInd < fromInd) {
             return new ArraySet<>(Collections.emptyList(), customComparator);
         }
 
@@ -118,12 +129,12 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
             return new ArraySet<>(Collections.emptyList(), customComparator);
         }
 
-        return subSet(fromElement, inclusive, elements[size - 1], true);
-/*        int fromIndex = inclusive ? ceilingIndex(fromElement) : higherIndex(fromElement);
-        if (fromIndex == -1) {
+        Integer fromIndex = inclusive ? ceilingIndex(fromElement) : higherIndex(fromElement);
+        if (fromIndex == null) {
             return new ArraySet<>(Collections.emptyList(), customComparator);
         }
-        return new ArraySet<>(Arrays.asList(Arrays.copyOfRange(elements, fromIndex, size)), customComparator);*/
+
+        return new ArraySet<>(Arrays.copyOfRange(elements, fromIndex, size), customComparator);
     }
 
 
@@ -168,7 +179,10 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
     @SuppressWarnings("unchecked")
     @Override
     public boolean contains(Object o) {
-        return find((E) o) != -1;
+        if (size == 0) {
+            return false;
+        }
+        return find((E) o) >= 0;
     }
 
     @Override
@@ -193,15 +207,14 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
     }
 
     private int find(E x) {
-        int i = -1;
         int low = 0;
         int high = size;
+        int mid = 0;
 
         while (low < high) {
-            int mid = low + high >>> 1;
+            mid = low + high >>> 1;
             if (compare(x, elements[mid]) == 0) {
-                i = mid;
-                break;
+                return mid;
             } else {
                 if (compare(x, elements[mid]) < 0) {
                     high = mid;
@@ -211,7 +224,7 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
             }
         }
 
-        return i;
+        return (compare(x, elements[mid]) > 0 ? mid + 1 : mid) * -1 - 1;
     }
 
     private class ArraySetIterator<T> implements Iterator<T> {
@@ -235,169 +248,80 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
                 : customComparator.compare((E) ob1, (E) ob2);
     }
 
-    private int lowerIndex(final E e) {
-        int ind = -1;
-
+    private Integer lowerIndex(final E e) {
         if (size == 0) {
-            return ind;
+            return null;
         }
 
-        int high = size;
-        if (compare(e, elements[size - 1]) > 0) {
-            return size - 1;
+        int higherIndex = find(e);
+
+        if (higherIndex == -1 || higherIndex == 0) {
+            return null;
         }
 
-        if (compare(e, elements[0]) <= 0) {
-            return ind;
+        if (higherIndex > 0) {
+            return higherIndex - 1;
+        } else {
+            int index = -higherIndex - 2;
+            return index == size ? null : index;
         }
-
-        int low = 0;
-        while (low < high) {
-            int mid = low + high >>> 1;
-            if (compare(e, elements[mid]) == 0) {
-                ind = mid - 1;
-                break;
-            } else {
-                if (compare(e, elements[mid]) < 0) {
-                    high = mid;
-                } else {
-                    if (compare(e, elements[mid + 1]) > 0) {
-                        low = mid + 1;
-                    } else {
-                        ind = mid;
-                        break;
-                    }
-                }
-            }
-        }
-
-        return ind;
     }
 
 
-    private int floorIndex(final E e) {
-        int ind = -1;
-
+    private Integer floorIndex(final E e) {
         if (size == 0) {
-            return ind;
+            return null;
         }
 
-        int high = size;
-        if (compare(e, elements[0]) < 0) {
-            return ind;
+        int higherIndex = find(e);
+
+        if (higherIndex == -1) {
+            return null;
         }
 
-        if (compare(e, elements[size - 1]) >= 0) {
-            return size - 1;
+        if (higherIndex >= 0) {
+            return higherIndex;
+        } else {
+            int index = -higherIndex - 2;
+            return index == size ? null : index;
         }
-
-        int low = 0;
-        while (low < high) {
-            int mid = low + high >>> 1;
-            if (compare(e, elements[mid]) == 0) {
-                ind = mid;
-                break;
-            } else {
-                if (compare(e, elements[mid]) < 0) {
-                    high = mid;
-                } else {
-                    if (compare(e, elements[mid + 1]) > 0) {
-                        low = mid + 1;
-                    } else {
-                        if (compare(e, elements[mid + 1]) == 0) {
-                            ind = mid + 1;
-                        } else {
-                            ind = mid;
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-
-        return ind;
     }
 
-
-    private int ceilingIndex(final E e) {
-        int ind = -1;
-
+    private Integer ceilingIndex(final E e) {
         if (size == 0) {
-            return ind;
+            return null;
         }
 
-        int high = size;
-        if (compare(e, elements[size - 1]) > 0) {
-            return ind;
+        int higherIndex = find(e);
+
+        if (higherIndex > size - 1) {
+            return null;
         }
 
-        if (compare(e, elements[0]) <= 0) {
-            return 0;
+        if (higherIndex >= 0) {
+            return higherIndex;
+        } else {
+            int index = -higherIndex - 1;
+            return index == size ? null : index;
         }
-
-        int low = 0;
-        while (low < high) {
-            int mid = low + high >>> 1;
-            if (compare(e, elements[mid]) == 0) {
-                ind = mid;
-                break;
-            } else if (compare(e, elements[mid]) > 0) {
-                low = mid + 1;
-            } else {
-                if (compare(e, elements[mid - 1]) < 0) {
-                    high = mid;
-                } else {
-                    if (compare(e, elements[mid - 1]) == 0) {
-                        ind = mid - 1;
-                    } else {
-                        ind = mid;
-                    }
-                    break;
-                }
-            }
-        }
-
-        return ind;
     }
 
-    private int higherIndex(final E e) {
-        int ind = -1;
-
+    private Integer higherIndex(final E e) {
         if (size == 0) {
-            return ind;
+            return null;
         }
 
-        int high = size;
-        if (compare(e, elements[size - 1]) >= 0) {
-            return ind;
+        int higherIndex = find(e);
+
+        if (higherIndex >= size - 1) {
+            return null;
         }
 
-        if (compare(e, elements[0]) < 0) {
-            return 0;
+        if (higherIndex >= 0) {
+            return higherIndex + 1;
+        } else {
+            int index = -higherIndex - 1;
+            return index == size ? null : index;
         }
-
-        int low = 0;
-        while (low < high) {
-            int mid = low + high >>> 1;
-            if (compare(e, elements[mid]) == 0) {
-                if (size > mid + 1) {
-                    ind = mid + 1;
-                }
-                break;
-            } else {
-                if (compare(e, elements[mid]) > 0) {
-                    low = mid + 1;
-                } else {
-                    if (compare(e, elements[mid - 1]) < 0) {
-                        high = mid;
-                    } else {
-                        ind = mid;
-                        break;
-                    }
-                }
-            }
-        }
-
-        return ind;
     }
 }
