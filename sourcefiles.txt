@@ -1,1 +1,3 @@
+java/ru/ifmo/ctddev/kuplkri/walk/Walk.java
 java/ru/ifmo/ctddev/kuplkri/walk/RecursiveWalk.java
+java/ru/ifmo/ctddev/kuplkri/arrayset/ArraySet.java
