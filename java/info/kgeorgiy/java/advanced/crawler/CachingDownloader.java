@@ -1,11 +1,15 @@
 package info.kgeorgiy.java.advanced.crawler;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
 import java.io.*;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Downloads document from the Web and stores them in storage directory.
@@ -13,10 +17,7 @@ import java.util.Collections;
  * @author Georgiy Korneev (kgeorgiy@kgeorgiy.info)
  */
 public class CachingDownloader implements Downloader {
-    private static final byte[] OK_MARKER = {'+'};
-    private static final byte[] FAIL_MARKER = {'-'};
-
-    private final Path directory;
+    private final File directory;
 
     /**
      * Creates a new downloader storing documents in temporary directory.
@@ -24,7 +25,7 @@ public class CachingDownloader implements Downloader {
      * @throws IOException if an error occurred.
      */
     public CachingDownloader() throws IOException {
-        this(Files.createTempDirectory(CachingDownloader.class.getName()));
+        this(Files.createTempDirectory(CachingDownloader.class.getName()).toFile());
     }
 
     /**
@@ -34,12 +35,12 @@ public class CachingDownloader implements Downloader {
      *
      * @throws IOException if an error occurred.
      */
-    public CachingDownloader(final Path directory) throws IOException {
+    public CachingDownloader(final File directory) throws IOException {
         this.directory = directory;
-        if (!Files.exists(directory)) {
-            Files.createDirectories(directory);
+        if (!directory.exists()) {
+            Files.createDirectories(directory.toPath());
         }
-        if (!Files.isDirectory(directory)) {
+        if (!directory.isDirectory()) {
             throw new IOException(directory + " is not a directory");
         }
     }
@@ -55,40 +56,35 @@ public class CachingDownloader implements Downloader {
      * @throws IOException if an error occurred.
      */
     public Document download(final String url) throws IOException {
+        System.out.println("Downloading " + url);
         final URI uri = URLUtils.getURI(url);
-        final Path file = directory.resolve(URLEncoder.encode(uri.toString(), "UTF-8"));
-        if (Files.notExists(file)) {
-            System.out.println("Downloading " + url);
-            try {
-                try (final InputStream is = uri.toURL().openStream()) {
-                    Files.copy(new SequenceInputStream(new ByteArrayInputStream(OK_MARKER), is), file);
-                }
-            } catch (final IOException e) {
-                final ByteArrayOutputStream out = new ByteArrayOutputStream();
-                out.write(FAIL_MARKER);
-                try (ObjectOutputStream oos = new ObjectOutputStream(out)) {
-                    oos.writeObject(e);
-                }
-                Files.copy(new ByteArrayInputStream(out.toByteArray()), file);
-                throw e;
-            }
-            System.out.println("Downloaded " + uri);
-        } else {
-            System.out.println("Already downloaded " + url);
-            try (final InputStream is = Files.newInputStream(file)) {
-                if (is.read() == FAIL_MARKER[0]) {
-                    try (ObjectInputStream ois = new ObjectInputStream(is)) {
-                        throw (IOException) ois.readObject();
-                    } catch (final ClassNotFoundException e) {
-                        throw new AssertionError(e);
-                    }
-                }
+        final File file = new File(directory, URLEncoder.encode(uri.toString(), "UTF-8"));
+        try (
+                final InputStream is = new BufferedInputStream(uri.toURL().openStream());
+                final OutputStream os = new BufferedOutputStream(new FileOutputStream(file))
+        ) {
+            final byte[] buffer = new byte[1024];
+            int read;
+            while ((read = is.read(buffer)) >= 0) {
+                os.write(buffer, 0, read);
             }
         }
+        System.out.println("Downloaded " + url);
         return () -> {
-            try (final InputStream is = Files.newInputStream(file)) {
-                return is.read() == FAIL_MARKER[0] ? Collections.emptyList() : URLUtils.extractLinks(uri, is);
+            final Elements elements = Jsoup.parse(file, null, url).select("a[href]");
+            final List<String> result = new ArrayList<>();
+            for (final Element element : elements) {
+                try {
+                    final URI href = uri.resolve(element.attr("href"));
+                    if (("http".equalsIgnoreCase(href.getScheme()) || "https".equals(href.getScheme())) && href.getHost() != null) {
+                        result.add(URLUtils.removeFragment(href.normalize().toString()));
+                    }
+                } catch (final IllegalArgumentException e) {
+                    // Invalid URI, ignore
+                }
             }
+            System.out.println("Links for " + url + ": " + result);
+            return result;
         };
     }
 }

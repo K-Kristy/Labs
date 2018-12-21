@@ -8,7 +8,7 @@ import java.util.function.Predicate;
  * @author Georgiy Korneev (kgeorgiy@kgeorgiy.info)
  */
 public interface ScalarIP {
-    <T> T maximum(int threads, List<? extends T> values, Comparator<? super T> comparator) throws InterruptedException;
+    <T> T maximum(final int threads, final List<? extends T> values, final Comparator<? super T> comparator) throws InterruptedException;
 
     <T> T minimum(int threads, List<? extends T> values, Comparator<? super T> comparator) throws InterruptedException;
 

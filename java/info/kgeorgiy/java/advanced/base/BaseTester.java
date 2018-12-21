@@ -11,7 +11,6 @@ import java.util.Map;
  * @author Georgiy Korneev (kgeorgiy@kgeorgiy.info)
  */
 public class BaseTester {
-    private final long start = System.currentTimeMillis();
     private final Map<String, Class<?>> tests = new HashMap<>();
 
     public void run(final String[] args) {
@@ -37,15 +36,14 @@ public class BaseTester {
             System.exit(1);
         } else {
             System.out.println("============================");
-            final long time = System.currentTimeMillis() - start;
-            System.out.printf("OK %s for %s in %dms %n", token.getSimpleName(), args[1], time);
+            System.out.println("OK " + token.getSimpleName() + " for " + args[1]);
             certify(token, args.length > 2 ? args[2] : "");
         }
     }
 
     protected void certify(final Class<?> token, final String salt) {
         try {
-            final CG cg = (CG) Class.forName("info.kgeorgiy.java.advanced.base.CertificateGenerator").getDeclaredConstructor().newInstance();
+            final CG cg = (CG) Class.forName("info.kgeorgiy.java.advanced.base.CertificateGenerator").newInstance();
             cg.certify(token, salt);
         } catch (final ClassNotFoundException e) {
             // Ignore
